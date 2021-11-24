@@ -1,8 +1,10 @@
 #!/bin/bash
+source ~/.bashrc
+conda activate pase
 
-libri=false
+libri=true
 libri_alldeltas=false
-genhlibri_allder2_5reg=true
+genhlibri_allder2_5reg=false
 libri_kaldi=false
 swbd=false
 ami=false
@@ -15,11 +17,12 @@ chime5_libri=false
 $libri && {
 
 python make_trainset_statistics.py \
-  --data_root /tmp-corpora/LibriSpeech_50h/wav_sel \
-  --data_cfg  /tmp-corpora/LibriSpeech_50h/librispeech_data_50h.cfg \
+  --data_root corpora/LibriSpeech \
+  --data_cfg  develop/data/data_100h.cfg \
+  --net_cfg cfg/workers/workers+.cfg \
   --num_workers 5 \
-  --kaldi_root /disks/data1/pawel/repos/kaldi \
-  --out_file data/librispeech_tmp_stats.pkl
+  --kaldi_root /home/joseph_feng/library/kaldi \
+  --out_file develop/data/librispeech100h_tmp_stats.pkl
 
 }
 

@@ -114,3 +114,18 @@ venv.bak/
 *.pe*
 
 *tmp
+
+# development
+
+# experiment
+corpora/
+model/
+runs/
+
+# aug and reverb
+*.zip
+*.tar.gz
+data/filters/
+data/RIRS_NOISES/
+data/simulated_rirs_16k/
+data/noise_non_stationary/

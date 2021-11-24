@@ -9,6 +9,7 @@ from train import make_transforms
 import pase
 from pase.utils import *
 
+
 def build_dataset_providers(opts):
 
     assert len(opts.data_root) > 0, (
@@ -20,7 +21,7 @@ def build_dataset_providers(opts):
     )
 
     if len(opts.data_root) == 1 and \
-        len(opts.dataset) < 1:
+            len(opts.dataset) < 1:
         opts.dataset.append('PairWavDataset')
 
     assert len(opts.data_root) == len(opts.dataset), (
@@ -59,7 +60,7 @@ def build_dataset_providers(opts):
         dataset = getattr(pase.dataset, opts.dataset[idx])
         dset = dataset(opts.data_root[idx], opts.data_cfg[idx], 'train',
                        transform=trans, ihm2sdm=opts.ihm2sdm)
-        #dset = PairWavDataset(opts.data_root[idx], opts.data_cfg[idx], 'train',
+        # dset = PairWavDataset(opts.data_root[idx], opts.data_cfg[idx], 'train',
         #                 transform=trans)
         dsets.append(dset)
 
@@ -68,13 +69,14 @@ def build_dataset_providers(opts):
     else:
         return dsets[0], batch_keys
 
+
 def extract_stats(opts):
     dset = build_dataset_providers(opts)
     collater_keys = dset[-1]
     dset = dset[0]
     collater = DictCollater()
     collater.batching_keys.extend(collater_keys)
-    dloader = DataLoader(dset, batch_size = 100,
+    dloader = DataLoader(dset, batch_size=100,
                          shuffle=True, collate_fn=collater,
                          num_workers=opts.num_workers)
     # Compute estimation of bpe. As we sample chunks randomly, we
@@ -98,21 +100,21 @@ def extract_stats(opts):
     stats = {}
     data = dict((k, torch.cat(v)) for k, v in data.items())
     for k, v in data.items():
-        stats[k] = {'mean':torch.mean(torch.mean(v, dim=2), dim=0),
-                    'std':torch.std(torch.std(v, dim=2), dim=0)}
+        stats[k] = {'mean': torch.mean(torch.mean(v, dim=2), dim=0),
+                    'std': torch.std(torch.std(v, dim=2), dim=0)}
     with open(opts.out_file, 'wb') as stats_f:
         pickle.dump(stats, stats_f)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data_root', action='append', 
+    parser.add_argument('--data_root', action='append',
                         default=[])
-    parser.add_argument('--data_cfg', action='append', 
+    parser.add_argument('--data_cfg', action='append',
                         default=[])
-    parser.add_argument('--dataset', action='append', 
+    parser.add_argument('--dataset', action='append',
                         default=[])
-    parser.add_argument('--exclude_keys', type=str, nargs='+', 
+    parser.add_argument('--exclude_keys', type=str, nargs='+',
                         default=['chunk', 'chunk_rand', 'chunk_ctxt'])
     parser.add_argument('--num_workers', type=int, default=1)
     parser.add_argument('--chunk_size', type=int, default=16000)
@@ -120,7 +122,7 @@ if __name__ == '__main__':
     parser.add_argument('--out_file', type=str)
     parser.add_argument('--hop_size', type=int, default=160)
     #parser.add_argument('--win_size', type=int, default=400)
-    
+
     # setting hop/wlen for each features
     parser.add_argument('--LPS_hop', type=int, default=160)
     parser.add_argument('--LPS_win', type=int, default=400)
@@ -147,7 +149,7 @@ if __name__ == '__main__':
     parser.add_argument('--kaldimfccs_num_ceps', type=int, default=20)
     #parser.add_argument('--kaldiplp_hop', type=int, default=160)
     parser.add_argument('--kaldiplp_win', type=int, default=400)
-    
+
     #parser.add_argument('--mfccs_librosa_hop', type=int, default=160)
     parser.add_argument('--mfccs_librosa_win', type=int, default=400)
     parser.add_argument('--mfccs_librosa_order', type=int, default=20)
@@ -156,7 +158,6 @@ if __name__ == '__main__':
     parser.add_argument('--mfccs_librosa_htk', type=int, default=True)
     parser.add_argument('--net_cfg', type=str, default=None)
 
-    
     parser.add_argument('--ihm2sdm', type=str, default=None,
                         help='Relevant only to ami-like dataset providers')
     parser.add_argument('--kaldi_root', type=str, default=None,
