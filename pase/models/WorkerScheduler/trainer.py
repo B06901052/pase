@@ -35,7 +35,7 @@ class trainer(object):
                  pretrained_ckpt=None,
                  tensorboard=None,
                  backprop_mode=None,
-                 lr_mode = 'step',
+                 lr_mode='step',
                  name='Pase_base',
                  device=None):
 
@@ -51,16 +51,16 @@ class trainer(object):
         if att_cfg:
             print("training pase with attention!")
             self.model = pase_attention(frontend=frontend,
-                            frontend_cfg=frontend_cfg,
-                            minions_cfg=minions_cfg,
-                            att_cfg=att_cfg,
-                            cls_lst=cls_lst, regr_lst=regr_lst,
-                            K=cfg['att_K'],
-                            avg_factor=cfg['avg_factor'],
-                            att_mode=cfg['att_mode'],
-                            chunk_size=cfg['chunk_size'],
-                            pretrained_ckpt=pretrained_ckpt,
-                            name=name)
+                                        frontend_cfg=frontend_cfg,
+                                        minions_cfg=minions_cfg,
+                                        att_cfg=att_cfg,
+                                        cls_lst=cls_lst, regr_lst=regr_lst,
+                                        K=cfg['att_K'],
+                                        avg_factor=cfg['avg_factor'],
+                                        att_mode=cfg['att_mode'],
+                                        chunk_size=cfg['chunk_size'],
+                                        pretrained_ckpt=pretrained_ckpt,
+                                        name=name)
         else:
             print("training pase...")
             self.model = pase(frontend=frontend,
@@ -81,22 +81,20 @@ class trainer(object):
         self.fronted_cfg = frontend_cfg
         self.cfg = cfg
 
-
-
         if cfg['fe_opt'].lower() == 'radam':
             self.frontend_optim = RAdam(self.model.frontend.parameters(),
                                         lr=cfg['fe_lr'])
         else:
             # init front end optim
             self.frontend_optim = getattr(optim, cfg['fe_opt'])(self.model.frontend.parameters(),
-                                                  lr=cfg['fe_lr'])
+                                                                lr=cfg['fe_lr'])
         self.fe_scheduler = LR_Scheduler(lr_mode, lr_step=cfg['lrdec_step'], optim_name="frontend", base_lr=cfg['fe_lr'],
-                                    num_epochs=self.epoch,
-                                    iters_per_epoch=self.bpe)
+                                         num_epochs=self.epoch,
+                                         iters_per_epoch=self.bpe)
 
         self.savers.append(Saver(self.model.frontend, self.save_path,
-                        max_ckpts=cfg['max_ckpts'],
-                        optimizer=self.frontend_optim, prefix='PASE-'))
+                                 max_ckpts=cfg['max_ckpts'],
+                                 optimizer=self.frontend_optim, prefix='PASE-'))
 
         # init workers optim
         self.cls_optim = {}
@@ -111,15 +109,14 @@ class trainer(object):
                 self.cls_optim[worker.name] = getattr(optim, min_opt)(worker.parameters(),
                                                                       lr=min_lr)
 
-            worker_scheduler = LR_Scheduler(lr_mode, lr_step=cfg['lrdec_step'],optim_name=worker.name, base_lr=min_lr,
+            worker_scheduler = LR_Scheduler(lr_mode, lr_step=cfg['lrdec_step'], optim_name=worker.name, base_lr=min_lr,
                                             num_epochs=self.epoch,
                                             iters_per_epoch=self.bpe)
             self.cls_scheduler[worker.name] = worker_scheduler
-            
+
             self.savers.append(Saver(worker, self.save_path, max_ckpts=cfg['max_ckpts'],
                                      optimizer=self.cls_optim[worker.name],
                                      prefix='M-{}-'.format(worker.name)))
-
 
         self.regr_optim = {}
         self.regr_scheduler = {}
@@ -143,7 +140,6 @@ class trainer(object):
                                      prefix='M-{}-'.format(worker.name)))
 
         self.epoch_beg = 0
-
 
         # init tensorboard writer
         print("Use tenoserboard: {}".format(tensorboard))
@@ -180,7 +176,8 @@ class trainer(object):
             self.temp = None
 
         if backprop_mode == "adaptive":
-            print("using adaptive with temp: {}, alpha: {}".format(cfg['temp'], cfg['alpha']))
+            print("using adaptive with temp: {}, alpha: {}".format(
+                cfg['temp'], cfg['alpha']))
             self.temp = cfg['temp']
             self.alpha = cfg['alpha']
         else:
@@ -190,13 +187,13 @@ class trainer(object):
         # auto supervise task evaluation
         if cfg['sup_exec'] is not None:
             aux_save_path = os.path.join(cfg['save_path'],
-                                             'sup_aux')
+                                         'sup_aux')
             if not os.path.exists(aux_save_path):
                 os.makedirs(aux_save_path)
             self.aux_sup = AuxiliarSuperviser(cfg['sup_exec'], aux_save_path)
         self.sup_freq = cfg['sup_freq']
 
-    #@profile
+    # @profile
     def train_(self, dataloader, valid_dataloader, device):
 
         print('=' * 50)
@@ -215,18 +212,37 @@ class trainer(object):
             self.model.train()
 
             iterator = iter(dataloader)
-            
+
             with trange(1, self.bpe + 1) as pbar:
                 for bidx in pbar:
                     pbar.set_description("Epoch {}/{}".format(e, self.epoch))
                     try:
-                        batch = next(iterator)
+                        while True:
+                            try:
+                                batch = next(iterator)
+                                break
+                            except np.linalg.LinAlgError as e:
+                                # SVD did not converge in Linear Least Squares
+                                print("error: ", e)
+                                np.savetxt("bug_{}.txt".format(
+                                    np.random.rand(1)[0]), batch.cpu().numpy())
+                                continue
                     except StopIteration:
-                        iterator = iter(dataloader)
-                        batch = next(iterator)
+                        while True:
+                            try:
+                                iterator = iter(dataloader)
+                                batch = next(iterator)
+                                break
+                            except np.linalg.LinAlgError as e:
+                                # SVD did not converge in Linear Least Squares
+                                print("error: ", e)
+                                np.savetxt("bug_{}.txt".format(
+                                    np.random.rand(1)[0]), batch.cpu().numpy())
+                                continue
 
                     # inference
-                    h, chunk, preds, labels = self.model.forward(batch, self.alphaSG, device)
+                    h, chunk, preds, labels = self.model.forward(
+                        batch, self.alphaSG, device)
 
                     # backprop using scheduler
                     losses, self.alphaSG = self.backprop(preds,
@@ -239,26 +255,29 @@ class trainer(object):
                                                          delta=self.delta,
                                                          temperture=self.temp,
                                                          alpha=self.alpha,
-                                                         batch = batch)
-
+                                                         batch=batch)
 
                     if bidx % self.log_freq == 0 or bidx >= self.bpe:
                         # decrease learning rate
                         lrs = {}
-                        lrs["frontend"] = self.fe_scheduler(self.frontend_optim, bidx, e, losses["total"].item())
+                        lrs["frontend"] = self.fe_scheduler(
+                            self.frontend_optim, bidx, e, losses["total"].item())
 
                         for name, scheduler in self.cls_scheduler.items():
-                            lrs[name] = scheduler(self.cls_optim[name], bidx, e, losses[name].item())
+                            lrs[name] = scheduler(
+                                self.cls_optim[name], bidx, e, losses[name].item())
 
                         for name, scheduler in self.regr_scheduler.items():
-                            lrs[name] = scheduler(self.regr_optim[name], bidx, e, losses[name].item())
+                            lrs[name] = scheduler(
+                                self.regr_optim[name], bidx, e, losses[name].item())
 
                         for k in losses.keys():
                             if k not in lrs:
                                 lrs[k] = 0
 
                         # print out info
-                        self.train_logger(preds, labels, losses, e, bidx, lrs, pbar)
+                        self.train_logger(
+                            preds, labels, losses, e, bidx, lrs, pbar)
 
             self._eval(valid_dataloader,
                        epoch=e,
@@ -277,8 +296,6 @@ class trainer(object):
                 if hasattr(self, 'aux_sup'):
                     self.aux_sup(e, fe_path, self.cfg['fe_cfg'])
 
-
-
     def _eval(self, dataloader, epoch=0, device='cpu'):
 
         self.model.eval()
@@ -290,7 +307,8 @@ class trainer(object):
 
             with trange(1, self.va_bpe + 1) as pbar:
                 for bidx in pbar:
-                    pbar.set_description("Eval: {}/{}".format(bidx, self.va_bpe+1))
+                    pbar.set_description(
+                        "Eval: {}/{}".format(bidx, self.va_bpe + 1))
                     try:
                         batch = next(iterator)
                     except StopIteration:
@@ -298,13 +316,15 @@ class trainer(object):
                         batch = next(iterator)
 
                     # inference
-                    h, chunk, preds, labels = self.model.forward(batch, device=device)
+                    h, chunk, preds, labels = self.model.forward(
+                        batch, device=device)
 
                     # calculate losses
                     tot_loss = torch.tensor([0.]).to(device)
                     losses = {}
                     for worker in self.model.classification_workers:
-                        loss = worker.loss(preds[worker.name], labels[worker.name])
+                        loss = worker.loss(
+                            preds[worker.name], labels[worker.name])
                         losses[worker.name] = loss
                         tot_loss += loss
                         if worker.name not in running_loss:
@@ -313,7 +333,8 @@ class trainer(object):
                             running_loss[worker.name].append(loss.item())
 
                     for worker in self.model.regression_workers:
-                        loss = worker.loss(preds[worker.name], labels[worker.name])
+                        loss = worker.loss(
+                            preds[worker.name], labels[worker.name])
                         losses[worker.name] = loss
                         tot_loss += loss
                         if worker.name not in running_loss:
@@ -328,11 +349,11 @@ class trainer(object):
                     if bidx % self.log_freq == 0 or bidx >= self.bpe:
                         pbar.write('-' * 50)
                         pbar.write('EVAL Batch {}/{} (Epoch {}):'.format(bidx,
-                                                                    self.va_bpe,
-                                                                    epoch))
+                                                                         self.va_bpe,
+                                                                         epoch))
                         for name, loss in losses.items():
                             pbar.write('{} loss: {:.3f}'
-                                  ''.format(name, loss.item()))
+                                       ''.format(name, loss.item()))
 
             self.eval_logger(running_loss, epoch, pbar)
 
@@ -378,39 +399,43 @@ class trainer(object):
                 else:
                     assert giters == giter_, giter_
                 saver.load_pretrained_ckpt(os.path.join(load_path,
-                                                        'weights_' + state), 
+                                                        'weights_' + state),
                                            load_last=True)
             except TypeError:
                 break
 
-
     def train_logger(self, preds, labels, losses, epoch, bidx, lrs, pbar):
         step = epoch * self.bpe + bidx
         pbar.write("=" * 50)
-        pbar.write('Batch {}/{} (Epoch {}) step: {}:'.format(bidx, self.bpe, epoch, step))
+        pbar.write(
+            'Batch {}/{} (Epoch {}) step: {}:'.format(bidx, self.bpe, epoch, step))
 
         for name, loss in losses.items():
             if name == "total":
-                pbar.write('%s, learning rate = %.8f, loss = %.4f' % ("total", lrs['frontend'], loss))
+                pbar.write('%s, learning rate = %.8f, loss = %.4f' %
+                           ("total", lrs['frontend'], loss))
             else:
-                pbar.write('%s, learning rate = %.8f, loss = %.4f' % (name, lrs[name], loss))
+                pbar.write('%s, learning rate = %.8f, loss = %.4f' %
+                           (name, lrs[name], loss))
 
             if self.writer:
 
                 self.writer.add_scalar('train/{}_loss'.format(name),
-                                  loss.item(),
-                                  global_step=step)
+                                       loss.item(),
+                                       global_step=step)
 
                 if name != "total":
-                    self.writer.add_histogram('train/{}'.format(name),
-                                         preds[name].data,
-                                         bins='sturges',
-                                         global_step=step)
+                    idx = torch.isfinite(preds[name].data)
+                    if idx.sum() > 0:
+                        self.writer.add_histogram('train/{}'.format(name),
+                                                  preds[name].data[idx],
+                                                  bins='sturges',
+                                                  global_step=step)
 
                     self.writer.add_histogram('train/gtruth_{}'.format(name),
-                                         labels[name].data,
-                                         bins='sturges',
-                                         global_step=step)
+                                              labels[name].data,
+                                              bins='sturges',
+                                              global_step=step)
 
         grads = get_grad_norms(self.model)
         for kgrad, vgrad in grads.items():
@@ -420,8 +445,8 @@ class trainer(object):
         if not self.tensorboard:
 
             for name, _ in preds.items():
-                    preds[name] = preds[name].data
-                    labels[name] = labels[name].data
+                preds[name] = preds[name].data
+                labels[name] = labels[name].data
 
             self.train_losses['itr'] = step
             self.train_losses['losses'] = losses
@@ -429,8 +454,10 @@ class trainer(object):
             self.train_losses['dist_gt'] = labels
 
             with open(os.path.join(self.save_path, 'train_losses.pkl'), "wb") as f:
-                pbar.write("saved log to {}".format(os.path.join(self.save_path, 'train_losses.pkl')))
-                pickle.dump(self.train_losses, f, protocol=pickle.HIGHEST_PROTOCOL)
+                pbar.write("saved log to {}".format(
+                    os.path.join(self.save_path, 'train_losses.pkl')))
+                pickle.dump(self.train_losses, f,
+                            protocol=pickle.HIGHEST_PROTOCOL)
 
     def eval_logger(self, running_loss, epoch, pbar):
         pbar.write("=" * 50)
@@ -440,12 +467,14 @@ class trainer(object):
                 pbar.write("avg loss {}: {}".format(name, loss))
 
                 self.writer.add_scalar('eval/{}_loss'.format(name),
-                                        loss,
-                                        global_step=epoch)
+                                       loss,
+                                       global_step=epoch)
         else:
             self.valid_losses['epoch'] = epoch
             self.valid_losses['losses'] = running_loss
 
             with open(os.path.join(self.save_path, 'valid_losses.pkl'), "wb") as f:
-                pbar.write("saved log to {}".format(os.path.join(self.save_path, 'valid_losses.pkl')))
-                pickle.dump(self.valid_losses, f, protocol=pickle.HIGHEST_PROTOCOL)
+                pbar.write("saved log to {}".format(
+                    os.path.join(self.save_path, 'valid_losses.pkl')))
+                pickle.dump(self.valid_losses, f,
+                            protocol=pickle.HIGHEST_PROTOCOL)

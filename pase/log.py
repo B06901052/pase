@@ -16,8 +16,8 @@ class PklWriter(object):
 
     def add_scalar(self, tag, scalar_value, global_step=None):
         if tag not in self.losses:
-            self.losses[tag] = {'global_step':[],
-                                'scalar_value':[]}
+            self.losses[tag] = {'global_step': [],
+                                'scalar_value': []}
         if torch.is_tensor(scalar_value):
             scalar_value = scalar_value.item()
         self.losses[tag]['scalar_value'].append(scalar_value)
@@ -28,6 +28,7 @@ class PklWriter(object):
     def add_histogram(self, tag, values, global_step=None, bins='sturges'):
         # not implemented for the json logger
         pass
+
 
 class LogWriter(object):
 
@@ -47,11 +48,12 @@ class LogWriter(object):
 
     def add_scalar(self, tag, scalar_value, global_step=None):
         for writer in self.writers:
-            writer.add_scalar(tag, scalar_value=scalar_value, 
+            writer.add_scalar(tag, scalar_value=scalar_value,
                               global_step=global_step)
 
     def add_histogram(self, tag, values, global_step=None, bins='sturges'):
         for writer in self.writers:
-            writer.add_histogram(tag, values=values, global_step=global_step, 
-                                 bins=bins)
-
+            idx = torch.isfinite(values)
+            if idx.sum() > 0:
+                writer.add_histogram(tag, values=values[idx], global_step=global_step,
+                                     bins=bins)
