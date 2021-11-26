@@ -3,24 +3,36 @@ import argparse
 import numpy as np
 
 
+def check_ext(fname, exts):
+    for ext in exts:
+        if fname.endswith(ext):
+            return True
+
+    return False
+
+
 class LibriParser(object):
-    def __init__(self, config):
-        self.path = config["path"]
-        self.splits = config["splits"]
+    def __init__(self, args):
+        self.path = args.libri_path
+        self.splits = {
+            "train": args.train,
+            "valid": args.valid,
+            "test": args.test,
+        }
         self.datas = {
             "train": [],
             "valid": [],
             "test": [],
         }
-        self.ext = config["ext"]
+        self.exts = args.exts
 
     def load(self):
-        def ext_filter(fname): return fname.endswith(self.ext)
+        def ext_filter(fname): return check_ext(fname, self.exts)
 
         for split in self.splits:
             for s in self.splits[split]:
                 path = os.path.join(self.path, s)
-                for pardir, subdirs, files in os.walk(path):
+                for _, _, files in os.walk(path):
                     self.datas[split] += list(filter(ext_filter, files))
 
     def gen_data_scp(self, dirpath):
@@ -54,30 +66,27 @@ class LibriParser(object):
 
 
 def getargs():
-    # TODO: make config yaml
-    # TODO: extension should support multi
     parser = argparse.ArgumentParser()
     parser.add_argument('--libri_path', type=str, help='path to libri')
     parser.add_argument('--dst_path', type=str,
                         help='dst path to store configuration files')
-    parser.add_argument('--extension', action='append',
+    parser.add_argument('--exts', action='append',
                         help='audio file extensions', default=[".flac", ".wav", ".mp3"])
+    parser.add_argument('--train', action='append',
+                        help='which splits should be used in train')
+    parser.add_argument('--valid', action='append',
+                        help='which splits should be used in valid')
+    parser.add_argument('--test', action='append',
+                        help='which splits should be used in test')
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     args = getargs()
-    config = {
-        "path": args.libri_path,
-        "splits": {
-            # , "train-clean-360", "train-other-500"
-            "train": ["train-clean-100"],
-            "valid": ["dev-clean", "dev-other"],
-            "test": ["test-clean", "test-other"],
-        },
-        "ext": ".flac",
-    }
-    libri_parser = LibriParser(config)
+    if not os.path.exists(args.dst_path):
+        os.makedirs(args.dst_path)
+
+    libri_parser = LibriParser(args)
     libri_parser.load()
-    libri_parser.gen_data_scp("./develop/data")
-    libri_parser.gen_data_dict("./develop/data")
+    libri_parser.gen_data_scp(args.dst_path)
+    libri_parser.gen_data_dict(args.dst_path)

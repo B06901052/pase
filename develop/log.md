@@ -1,5 +1,9 @@
 # PASE reproduce
 
+* if ImportError while import _torch_sox
+  * `conda uninstall pytorch`
+  * `conda install -c pytorch pytorch==1.4.0 torchvision==0.5.0 torchaudio=0.4.0`
+* batch: 13200 broken
 ## Environment Setup
 
 * python <= 3.7

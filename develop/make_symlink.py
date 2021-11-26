@@ -1,7 +1,6 @@
 import os
 import errno
 import argparse
-from typing import get_args
 
 
 def getargs():
@@ -24,8 +23,15 @@ def check_ext(fname, exts):
 
 if __name__ == "__main__":
     args = getargs()
+
+    # make dst dir
+    if not os.path.exists(args.dst_path):
+        os.makedirs(args.dst_path)
+
+    # find all audio files and create symlink to them (placed at dst_path)
     for pardir, subdirs, files in os.walk(args.libri_path):
         for f in files:
+            # check whether is audio file
             if check_ext(f, args.extention):
                 src = os.path.join(pardir, f)
                 dst = os.path.join(args.dst_path, f)
